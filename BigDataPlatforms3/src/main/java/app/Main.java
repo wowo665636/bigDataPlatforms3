@@ -8,15 +8,13 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.InsertOneModel;
 import org.bson.Document;
 import org.bson.types.ObjectId;
-import streamAnalytic.StreamAnalyticsManager;
+import streamAnalytic.StreamComputingService;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -61,21 +59,7 @@ public class Main {
         MongoClient dbClient = MongoClients.create(DB_CONNECTION_STRING_DEV);
         MongoDatabase database = dbClient.getDatabase(DB_NAME);
         createClients(database.getCollection("client"));
-
-        /*try {
-
-            StreamIngestManager manager = new StreamIngestManager(dbClient);
-            //BatchIngestManager manager2 = new BatchIngestManager(dbClient);
-            //  manager2.listen(manager.getClients());
-
-        } catch (IOException | TimeoutException e) {
-            System.err.println(e.getMessage());
-        }*/
-
-        StreamAnalyticsManager manager = new StreamAnalyticsManager(dbClient);
-        while(true){}
-
-
+        StreamComputingService manager = new StreamComputingService(dbClient);
     }
 
     private static void createClients(MongoCollection<Document> clientCollection){
@@ -85,20 +69,30 @@ public class Main {
         List<MysimbdpClient> clients = Arrays.asList(
                 new MysimbdpClient(new ObjectId("5db735b3a2b4a50ed31db10f"),
                         "inputDirectory", "constraintFile",
-                        "BatchIngestClient1.jar", "StreamIngestClient1.jar",
-                        "StreamAnalytics1.jar", "Client1", "Client1"),
+                        "BatchIngestClient1.jar", "StreamIngestClient1.jar", "Client1db",
+
+                        "StreamAnalyticsClient1-1.0-SNAPSHOT.jar", "client1QueueToPlatform", "client1QueueFromPlatform" ,
+                        "localhost", "client1username", "client1password", 5672),
                 new MysimbdpClient(new ObjectId("5db735b3a2b4a50ed31db110"),
                         "inputDirectory", "constraintFile",
-                        "BatchIngestClient2", "StreamIngestClient2", "StreamAnalytics2.jar",
-                        "Client2", "Client2"),
+                        "BatchIngestClient2.jar", "StreamIngestClient2.jar", "Client2db",
+
+                        "StreamAnalyticsClient2.jar", "client2QueueToPlatform", "client2QueueFromPlatform" ,
+                        "localhost", "client2username", "client2password", 5672),
+
                 new MysimbdpClient(new ObjectId("5db735b3a2b4a50ed31db111"),
                         "inputDirectory", "constraintFile",
-                        "BatchIngestClient3", "StreamIngestClient3", "StreamAnalytics3.jar",
-                        "Client3", "Client3"),
+                        "BatchIngestClient3.jar", "StreamIngestClient3.jar", "Client3db",
+
+                        "StreamAnalyticsClient3.jar", "client3QueueToPlatform", "client3QueueFromPlatform" ,
+                        "localhost", "client3username", "client3password", 5672),
+
                 new MysimbdpClient(new ObjectId("5db735b3a2b4a50ed31db112"),
                         "inputDirectory", "constraintFile",
-                        "BatchIngestClient4", "StreamIngestClient4", "StreamAnalytics4.jar",
-                        "Client4", "Client4")
+                        "BatchIngestClient4.jar", "StreamIngestClient4.jar", "Client4db",
+
+                        "StreamAnalyticsClient4.jar", "client4QueueToPlatform", "client4QueueFromPlatform" ,
+                        "localhost", "client4username", "client4password", 5672)
         );
 
         List<InsertOneModel<Document>> all = clients.stream()

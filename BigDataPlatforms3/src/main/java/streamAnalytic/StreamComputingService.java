@@ -9,21 +9,20 @@ import org.bson.Document;
 import java.util.ArrayList;
 import java.util.List;
 
-public class StreamAnalyticsManager {
+public class StreamComputingService {
 
     private MongoClient mongoClient;
-    private static final String HOST = "localhost";
 
-    public StreamAnalyticsManager(MongoClient mongoClient){
+    public StreamComputingService(MongoClient mongoClient){
         this.mongoClient = mongoClient;
 
         List<MysimbdpClient> clients = getClients();
         for(MysimbdpClient client: clients){
-            new Thread(new CustomerStreamApp(HOST, client.getChannel(), client.getStreamAnalyticsName())).start();
+            new Thread(new CustomerStreamApp(client.streamAnalyticsName)).start();
         }
     }
 
-    protected List<MysimbdpClient> getClients(){
+    private List<MysimbdpClient> getClients(){
         List<MysimbdpClient> clients = new ArrayList<>();
 
         MongoCollection collection = mongoClient.getDatabase("bts").getCollection("client");

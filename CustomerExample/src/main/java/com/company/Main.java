@@ -6,63 +6,74 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.Channel;
 import org.bson.Document;
 
-import java.net.URL;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class Main {
 
-    private final static String QUEUE_NAME = "5db735b3a2b4a50ed31db10f";
+    private final static String QUEUE_NAME_TO_PLATFORM = "client1QueueToPlatform";
+    private final static String QUEUE_NAME_FROM_PLATFORM = "client1QueueFromPlatform";
+
+    private static final String HOST = "localhost";
+    private static final String USERNAME = "client1username";
+    private static final String PASSWORD = "client1password";
+    private static final int PORT = 5672;
+    private final static String FILES_LOCATION = "C:\\Users\\sarah\\Desktop\\data";
 
     public static void main(String[] argv) throws Exception {
 
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("localhost");
+        //factory.setUsername(USERNAME);
+        //factory.setPassword(PASSWORD);
+        factory.setHost(HOST);
+        factory.setPort(PORT);
 
-        try (Connection connection = factory.newConnection(); Channel channel = connection.createChannel()) {
+        File directoryPath = new File(FILES_LOCATION);
+        String[] contents = directoryPath.list();
+        Connection connection = factory.newConnection();
 
-            channel.queueDeclare(QUEUE_NAME, false, false, false, null);
+        assert contents != null; //TODO CHANGE
 
-            int batchSize = 10;
+        for (String fileName : contents) {
 
-            String[] headers = { "station_id", "datapoint_id" ,"alarm_id" ,"event_time",
-                    "value","valueThreshold","isActive","storedtime"};
+            Stream<String> fileStream = Files.lines(Paths.get(FILES_LOCATION, fileName));
 
-            AtomicInteger cpt = new AtomicInteger(0);
-            AtomicInteger batchNb = new AtomicInteger(0);
+            try (Channel channel = connection.createChannel()) {
+                channel.queueDeclare(QUEUE_NAME_FROM_PLATFORM, false, false, false, null);
 
-            URL res = Main.class.getClassLoader().getResource("bts-data-alarm-2017.csv");
-            Stream<String> fileStream = Files.lines(Paths.get(res.toURI()));
-            final List<Document> buffer = new ArrayList<>();
+                channel.basicConsume(QUEUE_NAME_FROM_PLATFORM, true,  (consumerTag, delivery) -> {
+                    Double message =  ByteBuffer.wrap(delivery.getBody()).getDouble();
+                    System.out.println(" [x] Platform responded over queue" + QUEUE_NAME_FROM_PLATFORM
+                            + " :" + message + System.lineSeparator());
+                }, consumerTag -> {});
 
-            for (Iterator<String> it = fileStream.skip(1).iterator(); it.hasNext(); ){
+                channel.queueDeclare(QUEUE_NAME_TO_PLATFORM, true, false,false, null);
 
-                String[] values = it.next().split(",");
-                Document doc = new Document();
-                IntStream.range(0, headers.length - 1).forEach(i -> doc.append(headers[i], values[i]));
-                buffer.add(doc);
+                Iterator<String> it = fileStream.iterator();
+                String[] headers = it.next().split(",");
 
-                if(cpt.incrementAndGet() == batchSize|| !it.hasNext()){
-                    String message = new Gson().toJson(buffer);
-                    System.out.println(buffer.size());
-                    buffer.clear();
-                    cpt.set(0);
-                    channel.basicPublish("", QUEUE_NAME, null, message.getBytes());
-                    System.out.println(" [x] Sent message over queue "  + QUEUE_NAME);
+                while(it.hasNext()) {
+                    String[] values = it.next().split(",");
+                    Document doc = new Document();
+                    IntStream.range(0, headers.length - 1).forEach(i -> doc.append(headers[i], values[i]));
+                    String message = new Gson().toJson(doc);
+                    channel.basicPublish("", QUEUE_NAME_TO_PLATFORM, null, message.getBytes());
+                    System.out.println(" [x] Sent message to platform over queue " + QUEUE_NAME_TO_PLATFORM + " :" + message + System.lineSeparator());
                     Thread.sleep(5000);
                 }
 
+            } catch (TimeoutException | IOException | InterruptedException e) {
+                e.printStackTrace();
             }
 
-
         }
-
-
     }
 }
